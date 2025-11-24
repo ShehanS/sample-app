@@ -8,7 +8,7 @@ pool:
 
 variables:
   DOCKER_USERNAME: shehan077
-  DOCKER_PASSWORD: $(docker_password)
+  DOCKER_PASSWORD: shehan@123
 
 stages:
 - stage: BuildAndDocker
