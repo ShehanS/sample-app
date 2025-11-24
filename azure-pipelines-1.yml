@@ -27,12 +27,28 @@ stages:
             goals: 'package'
             publishJUnitResults: true
             testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        
+        # Publish the build artifact so it's available in subsequent stages
+        - task: PublishPipelineArtifact@1
+          inputs:
+            targetPath: '$(Build.SourcesDirectory)/target'
+            artifact: 'maven-build'
+            publishLocation: 'pipeline'
+          displayName: 'Publish Maven Build Artifacts'
+
 - stage: Docker
   displayName: "Build Docker Image"
   dependsOn: Build
   jobs:
     - job: DockerJob
       steps:
+        # Download the published artifact
+        - task: DownloadPipelineArtifact@2
+          inputs:
+            artifact: 'maven-build'
+            path: '$(Build.SourcesDirectory)/target'
+          displayName: 'Download Maven Build Artifacts'
+
         - script: |
             echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
           displayName: "Docker Login"
@@ -45,8 +61,6 @@ stages:
             cd $(Build.SourcesDirectory)
             docker build --network=host -t ntb-app:$(Build.BuildId) .
           displayName: "Build Docker Image"
-
-
 
 - stage: Deploy
   displayName: "Deploy to Local Kubernetes"
