@@ -11,13 +11,14 @@ variables:
   DOCKER_PASSWORD: $(docker_password)
 
 stages:
-- stage: Build
-  displayName: "Maven Build"
+- stage: BuildAndDocker
+  displayName: "Maven Build and Docker Image"
   jobs:
-    - job: BuildJob
+    - job: BuildAndDockerJob
       workspace:
         clean: outputs
       steps:
+        # Maven Build
         - task: Maven@3
           inputs:
             mavenPomFile: 'pom.xml'
@@ -27,36 +28,19 @@ stages:
             goals: 'package'
             publishJUnitResults: true
             testResultsFiles: '**/surefire-reports/TEST-*.xml'
-        
-        # Publish the build artifact so it's available in subsequent stages
-        - task: PublishPipelineArtifact@1
-          inputs:
-            targetPath: '$(Build.SourcesDirectory)/target'
-            artifact: 'maven-build'
-            publishLocation: 'pipeline'
-          displayName: 'Publish Maven Build Artifacts'
+          displayName: 'Maven Build'
 
-- stage: Docker
-  displayName: "Build Docker Image"
-  dependsOn: Build
-  jobs:
-    - job: DockerJob
-      steps:
-        # Download the published artifact
-        - task: DownloadPipelineArtifact@2
-          inputs:
-            artifact: 'maven-build'
-            path: '$(Build.SourcesDirectory)/target'
-          displayName: 'Download Maven Build Artifacts'
-
+        # Docker Login
         - script: |
             echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
           displayName: "Docker Login"
 
+        # Pre-pull base image
         - script: |
             docker pull eclipse-temurin:17-jdk || echo "Already pulled or network issue"
           displayName: "Pre-pull base image"
 
+        # Build Docker Image
         - script: |
             cd $(Build.SourcesDirectory)
             docker build --network=host -t ntb-app:$(Build.BuildId) .
@@ -64,7 +48,7 @@ stages:
 
 - stage: Deploy
   displayName: "Deploy to Local Kubernetes"
-  dependsOn: Docker
+  dependsOn: BuildAndDocker
   jobs:
     - deployment: DeployToLocal
       environment: dev
