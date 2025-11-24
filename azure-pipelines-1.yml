@@ -16,7 +16,7 @@ stages:
   jobs:
     - job: BuildJob
       workspace:
-        clean: none
+        clean: outputs
       steps:
         - task: Maven@3
           inputs:
