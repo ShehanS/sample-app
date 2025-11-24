@@ -1,0 +1,65 @@
+trigger:
+- master
+
+pool:
+  name: Default
+  demands:
+    - agent.os -equals Linux
+
+stages:
+- stage: Build
+  displayName: "Maven Build"
+  jobs:
+    - job: BuildJob
+      steps:
+        - task: Maven@3
+          inputs:
+            mavenPomFile: 'pom.xml'
+            mavenOptions: '-Xmx3072m'
+            javaHomeOption: 'Path'
+            jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
+            goals: 'package'
+            publishJUnitResults: true
+            testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+- stage: Docker
+  displayName: "Build Docker Image"
+  dependsOn: Build
+  jobs:
+    - job: DockerJob
+      steps:
+        # Login to Docker Hub to avoid pull limits
+        - script: |
+            echo  docker login -u shehan077 --password-stdin
+          displayName: "Docker Login"
+
+        # Pre-pull base image to avoid TLS handshake issues
+        - script: |
+            docker pull eclipse-temurin:17-jdk || echo "Already pulled or network issue"
+          displayName: "Pre-pull base image"
+
+        # Build your app image
+        - script: |
+            docker build --network=host -t ntb-app:$(Build.BuildId) .
+          displayName: "Build Docker Image"
+
+- stage: Deploy
+  displayName: "Deploy to Local Kubernetes"
+  dependsOn: Docker
+  jobs:
+    - deployment: DeployToLocal
+      environment: dev
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - script: |
+                  echo "Deploying to local Kubernetes..."
+                  export KUBECONFIG=$HOME/.kube/config
+
+                  # If using Kind, load image into cluster
+                  # kind load docker-image ntb-app:$(Build.BuildId)
+
+                  kubectl apply -f k8s/deployment.yaml
+                  kubectl apply -f k8s/service.yaml
+                displayName: "Deploy to Kubernetes"
