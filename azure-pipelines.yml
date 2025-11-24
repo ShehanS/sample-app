@@ -35,6 +35,6 @@ stages:
                   echo "Deploying to Dev Environment..."
                   cd /home/shehan/Documents/dev/ntb
                   mkdir -p ntb_jobs
-                  cp target/*.jar /home/shehan/Documents/dev/ntb/ntb_jobs
+                  cp /home/shehan/Documents/dev/ntb/vsts-agent-linux-x64-4.264.2/_work/1/s/target/*.jar /home/shehan/Documents/dev/ntb/ntb_jobs
                   echo "Deployment success..."
                 displayName: "Copy build to local dev folder"
