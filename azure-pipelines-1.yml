@@ -28,8 +28,19 @@ stages:
   jobs:
     - job: DockerJob
       steps:
+        # Login to Docker Hub to avoid pull limits
         - script: |
-            docker build -t ntb-app:$(Build.BuildId) .
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+          displayName: "Docker Login"
+
+        # Pre-pull base image to avoid TLS handshake issues
+        - script: |
+            docker pull eclipse-temurin:17-jdk || echo "Already pulled or network issue"
+          displayName: "Pre-pull base image"
+
+        # Build your app image
+        - script: |
+            docker build --network=host -t ntb-app:$(Build.BuildId) .
           displayName: "Build Docker Image"
 
 - stage: Deploy
@@ -44,13 +55,11 @@ stages:
             steps:
               - script: |
                   echo "Deploying to local Kubernetes..."
-                  # Make sure kubectl uses local kubeconfig
                   export KUBECONFIG=$HOME/.kube/config
-                  
-                  # Optionally load image into local cluster if using Kind
+
+                  # If using Kind, load image into cluster
                   # kind load docker-image ntb-app:$(Build.BuildId)
 
-                  # Apply manifests
                   kubectl apply -f k8s/deployment.yaml
                   kubectl apply -f k8s/service.yaml
                 displayName: "Deploy to Kubernetes"
