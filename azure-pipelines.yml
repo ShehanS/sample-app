@@ -1,0 +1,40 @@
+trigger:
+- master
+
+pool:
+  name: Default
+  demands:
+  - agent.os -equals Linux
+
+stages:
+- stage: Build
+  jobs:
+    - job: BuildJob
+      steps:
+        - task: Maven@3
+          inputs:
+            mavenPomFile: 'pom.xml'
+            mavenOptions: '-Xmx3072m'
+            javaHomeOption: 'Path'
+            jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
+            publishJUnitResults: true
+            testResultsFiles: '**/surefire-reports/TEST-*.xml'
+            goals: 'package'
+
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+    - deployment: DeployToDev
+      displayName: Deploy To Dev
+      environment: dev
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - script: |
+                  echo "Deploying to Dev Environment..."
+                  cd /home/shehan/Documents/dev/ntb
+                  mkdir -p ntb_jobs
+                  cp /home/shehan/Documents/dev/ntb/vsts-agent-linux-x64-4.264.2/_work/1/s/target/*.jar /home/shehan/Documents/dev/ntb/ntb_jobs
+                  echo "Deployment success..."
+                displayName: "Copy build to local dev folder"
