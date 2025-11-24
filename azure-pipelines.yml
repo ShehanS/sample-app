@@ -7,6 +7,7 @@ pool:
   - agent.os -equals Linux
 
 steps:
+- script: echo "Hello from self-hosted agent!"
 - task: Maven@3
   inputs:
     mavenPomFile: 'pom.xml'
