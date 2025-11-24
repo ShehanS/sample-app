@@ -15,8 +15,8 @@ stages:
   displayName: "Maven Build"
   jobs:
     - job: BuildJob
-      # workspace:
-      #   clean: all
+      workspace:
+        clean: none
       steps:
         - task: Maven@3
           inputs:
