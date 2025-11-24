@@ -6,11 +6,21 @@ pool:
   demands:
     - agent.os -equals Linux
 
+variables:
+  DOCKER_USERNAME: shehan077
+  DOCKER_PASSWORD: $(docker_password) # Set in pipeline secret variable
+
 stages:
+
+# --------------------------
+# Stage 1: Maven Build
+# --------------------------
 - stage: Build
   displayName: "Maven Build"
   jobs:
     - job: BuildJob
+      workspace:
+        clean: all # Optional, you can remove this if you want to keep previous builds
       steps:
         - task: Maven@3
           inputs:
@@ -22,15 +32,18 @@ stages:
             publishJUnitResults: true
             testResultsFiles: '**/surefire-reports/TEST-*.xml'
 
+# --------------------------
+# Stage 2: Docker Build
+# --------------------------
 - stage: Docker
   displayName: "Build Docker Image"
   dependsOn: Build
   jobs:
     - job: DockerJob
       steps:
-        # Login to Docker Hub to avoid pull limits
+        # Docker Login
         - script: |
-            echo  docker login -u shehan077 --password-stdin
+            echo $(DOCKER_PASSWORD) | docker login -u $(DOCKER_USERNAME) --password-stdin
           displayName: "Docker Login"
 
         # Pre-pull base image to avoid TLS handshake issues
@@ -38,11 +51,15 @@ stages:
             docker pull eclipse-temurin:17-jdk || echo "Already pulled or network issue"
           displayName: "Pre-pull base image"
 
-        # Build your app image
+        # Build Docker Image
         - script: |
+            cd $(Build.SourcesDirectory)
             docker build --network=host -t ntb-app:$(Build.BuildId) .
           displayName: "Build Docker Image"
 
+# --------------------------
+# Stage 3: Deploy to Kubernetes
+# --------------------------
 - stage: Deploy
   displayName: "Deploy to Local Kubernetes"
   dependsOn: Docker
