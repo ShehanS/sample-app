@@ -30,7 +30,7 @@ stages:
       steps:
         # Login to Docker Hub to avoid pull limits
         - script: |
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            echo shehan077 | docker login -u shehan@123 --password-stdin
           displayName: "Docker Login"
 
         # Pre-pull base image to avoid TLS handshake issues
