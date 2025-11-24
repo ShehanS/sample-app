@@ -1,0 +1,56 @@
+trigger:
+- master
+
+pool:
+  name: Default
+  demands:
+    - agent.os -equals Linux
+
+stages:
+- stage: Build
+  displayName: "Maven Build"
+  jobs:
+    - job: BuildJob
+      steps:
+        - task: Maven@3
+          inputs:
+            mavenPomFile: 'pom.xml'
+            mavenOptions: '-Xmx3072m'
+            javaHomeOption: 'Path'
+            jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
+            goals: 'package'
+            publishJUnitResults: true
+            testResultsFiles: '**/surefire-reports/TEST-*.xml'
+
+- stage: Docker
+  displayName: "Build Docker Image"
+  dependsOn: Build
+  jobs:
+    - job: DockerJob
+      steps:
+        - script: |
+            docker build -t ntb-app:$(Build.BuildId) .
+          displayName: "Build Docker Image"
+
+- stage: Deploy
+  displayName: "Deploy to Local Kubernetes"
+  dependsOn: Docker
+  jobs:
+    - deployment: DeployToLocal
+      environment: dev
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - script: |
+                  echo "Deploying to local Kubernetes..."
+                  # Make sure kubectl uses local kubeconfig
+                  export KUBECONFIG=$HOME/.kube/config
+                  
+                  # Optionally load image into local cluster if using Kind
+                  # kind load docker-image ntb-app:$(Build.BuildId)
+
+                  # Apply manifests
+                  kubectl apply -f k8s/deployment.yaml
+                  kubectl apply -f k8s/service.yaml
+                displayName: "Deploy to Kubernetes"
