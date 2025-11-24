@@ -19,8 +19,8 @@ stages:
   displayName: "Maven Build"
   jobs:
     - job: BuildJob
-      workspace:
-        clean: all # Optional, you can remove this if you want to keep previous builds
+      # workspace:
+      #   clean: all # Optional, you can remove this if you want to keep previous builds
       steps:
         - task: Maven@3
           inputs:
