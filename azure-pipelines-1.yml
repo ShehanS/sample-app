@@ -1,5 +1,5 @@
 trigger:
-- master
+  - master
 
 pool:
   name: Default
@@ -7,109 +7,64 @@ pool:
     - agent.os -equals Linux
 
 variables:
-  DOCKER_USERNAME: shehan077
-  DOCKER_PASSWORD: shehan@123
+  - name: DOCKER_USERNAME
+    value: shehan077
+  - name: DOCKER_PASSWORD
+    value: shehan@123
 
 stages:
 - stage: BuildAndDocker
-  displayName: "Maven Build and Docker Image"
   jobs:
     - job: BuildAndDockerJob
       workspace:
-        clean: outputs
+        clean: all
       steps:
-        # Maven Build
+
         - task: Maven@3
           inputs:
             mavenPomFile: 'pom.xml'
-            mavenOptions: '-Xmx3072m'
-            javaHomeOption: 'Path'
-            jdkDirectory: '/usr/lib/jvm/java-17-openjdk-amd64'
             goals: 'package'
-            publishJUnitResults: true
-            testResultsFiles: '**/surefire-reports/TEST-*.xml'
-          displayName: 'Maven Build'
 
-        # Docker Login
         - script: |
-            echo "$(DOCKER_PASSWORD)" | docker login -u $(DOCKER_USERNAME) --password-stdin
+            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
           displayName: "Docker Login"
-          env:
-            DOCKER_PASSWORD: $(DOCKER_PASSWORD)
 
-        # Pre-pull base image
         - script: |
-            docker pull eclipse-temurin:17-jdk || echo "Already pulled or network issue"
-          displayName: "Pre-pull base image"
+            docker pull eclipse-temurin:17-jdk || true
+          displayName: "Pre-pull JDK"
 
-        # Build Docker Image
         - script: |
             cd $(Build.SourcesDirectory)
             docker build --network=host -t ntb-app:$(Build.BuildId) .
             docker tag ntb-app:$(Build.BuildId) ntb-app:latest
-          displayName: "Build Docker Image"
+          displayName: "Docker Build"
 
 - stage: Deploy
-  displayName: "Deploy to Local Kubernetes"
   dependsOn: BuildAndDocker
   jobs:
-    - deployment: DeployToLocal
-      environment: dev
-      strategy:
-        runOnce:
-          deploy:
-            steps:
-              # Checkout repository to access k8s files
-              - checkout: self
-              
-              # Deploy to Kubernetes
-              - script: |
-                  echo "Deploying to local Kubernetes..."
-                  export KUBECONFIG=$HOME/.kube/config
-                  
-                  # Update deployment.yaml with the correct image tag
-                  sed -i "s|image: ntb-app:.*|image: ntb-app:$(Build.BuildId)|g" k8s/deployment.yaml
-                  
-                  # If using Kind, uncomment this to load image into cluster
-                  # kind load docker-image ntb-app:$(Build.BuildId) --name kind
-                  
-                  # If using Minikube, uncomment this
-                  # minikube image load ntb-app:$(Build.BuildId)
-                  
-                  # Apply Kubernetes manifests
-                  kubectl apply -f k8s/deployment.yaml
-                  kubectl apply -f k8s/service.yaml
-                  
-                  # Wait for deployment to complete
-                  echo "Waiting for deployment to roll out..."
-                  kubectl rollout status deployment/ntb-app --timeout=300s
-                  
-                  # Display deployment info
-                  echo "=== Deployment Status ==="
-                  kubectl get deployments ntb-app
-                  echo ""
-                  echo "=== Pods ==="
-                  kubectl get pods -l app=ntb-app
-                  echo ""
-                  echo "=== Service ==="
-                  kubectl get svc ntb-app-service
-                  echo ""
-                  echo "=== Application URL ==="
-                  echo "Access your application at: http://localhost:30080"
-                displayName: "Deploy to Kubernetes"
-              
-              # Verify deployment health
-              - script: |
-                  export KUBECONFIG=$HOME/.kube/config
-                  
-                  echo "=== Checking Pod Health ==="
-                  kubectl get pods -l app=ntb-app -o wide
-                  
-                  echo ""
-                  echo "=== Recent Pod Logs ==="
-                  kubectl logs -l app=ntb-app --tail=20 --all-containers=true || echo "Pods not ready yet"
-                displayName: "Verify Deployment"
-                condition: succeededOrFailed()
+    - job: DeployToLocal
+      steps:
+
+        - checkout: self
+        
+        - script: |
+            export KUBECONFIG=$HOME/.kube/config
+
+            echo "Updating deployment image..."
+            sed -i "s|image: ntb-app:.*|image: ntb-app:$(Build.BuildId)|" k8s/deployment.yaml
+
+            kubectl apply -f k8s/deployment.yaml
+            kubectl apply -f k8s/service.yaml
+
+            kubectl rollout status deployment/ntb-app --timeout=300s
+          displayName: "Deploy to Kubernetes"
+
+        - script: |
+            export KUBECONFIG=$HOME/.kube/config
+            kubectl get pods -l app=ntb-app -o wide
+            kubectl logs -l app=ntb-app --tail=20 --all-containers=true
+          displayName: "Verify Deployment"
+
 
 # trigger:
 # - master
