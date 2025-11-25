@@ -14,8 +14,10 @@ variables:
 
 stages:
 - stage: BuildAndDocker
+  
   jobs:
     - job: BuildAndDockerJob
+    
       workspace:
         clean: all
       steps:
@@ -44,7 +46,6 @@ stages:
   jobs:
     - job: DeployToLocal
       steps:
-
         - checkout: self
         
         - script: |
