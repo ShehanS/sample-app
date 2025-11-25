@@ -1,6 +1,8 @@
 trigger:
   - master
 
+
+
 pool:
   name: Default
   demands:
@@ -14,14 +16,12 @@ variables:
 
 stages:
 - stage: BuildAndDocker
-  
   jobs:
     - job: BuildAndDockerJob
-    
       workspace:
         clean: all
       steps:
-
+          
         - task: Maven@3
           inputs:
             mavenPomFile: 'pom.xml'
