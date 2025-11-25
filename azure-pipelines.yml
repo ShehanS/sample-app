@@ -1,8 +1,6 @@
 trigger:
   - master
 
-
-
 pool:
   name: Default
   demands:
@@ -16,12 +14,14 @@ variables:
 
 stages:
 - stage: BuildAndDocker
+  
   jobs:
     - job: BuildAndDockerJob
+    
       workspace:
         clean: all
       steps:
-          
+
         - task: Maven@3
           inputs:
             mavenPomFile: 'pom.xml'
@@ -44,24 +44,32 @@ stages:
 - stage: Deploy
   dependsOn: BuildAndDocker
   jobs:
-    - job: DeployToLocal
-      steps:
-        - checkout: self
-        
-        - script: |
-            export KUBECONFIG=$HOME/.kube/config
+    - deployment: DeployToKubernetes
+      displayName: Deploy to Kubernetes
+      environment: 
+        name: gks  # Your environment name
+        resourceType: Kubernetes
+        resourceName: default  # Your Kubernetes namespace
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+              
+              - script: |
+                  export KUBECONFIG=$HOME/.kube/config
 
-            echo "Updating deployment image..."
-            sed -i "s|image: ntb-app:.*|image: ntb-app:$(Build.BuildId)|" k8s/deployment.yaml
+                  echo "Updating deployment image..."
+                  sed -i "s|image: ntb-app:.*|image: ntb-app:$(Build.BuildId)|" k8s/deployment.yaml
 
-            kubectl apply -f k8s/deployment.yaml
-            kubectl apply -f k8s/service.yaml
+                  kubectl apply -f k8s/deployment.yaml
+                  kubectl apply -f k8s/service.yaml
 
-            kubectl rollout status deployment/ntb-app --timeout=300s
-          displayName: "Deploy to Kubernetes"
+                  kubectl rollout status deployment/ntb-app --timeout=300s
+                displayName: "Deploy to Kubernetes"
 
-        - script: |
-            export KUBECONFIG=$HOME/.kube/config
-            kubectl get pods -l app=ntb-app -o wide
-            kubectl logs -l app=ntb-app --tail=20 --all-containers=true
-          displayName: "Verify Deployment"
+              - script: |
+                  export KUBECONFIG=$HOME/.kube/config
+                  kubectl get pods -l app=ntb-app -o wide
+                  kubectl logs -l app=ntb-app --tail=20 --all-containers=true
+                displayName: "Verify Deployment"
