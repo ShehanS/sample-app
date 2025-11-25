@@ -47,9 +47,9 @@ stages:
     - deployment: DeployToKubernetes
       displayName: Deploy to Kubernetes
       environment: 
-        name: gks  # Your environment name
+        name: gks  
         resourceType: Kubernetes
-        resourceName: default  # Your Kubernetes namespace
+        resourceName: Default 
       strategy:
         runOnce:
           deploy:
