@@ -28,7 +28,7 @@ stages:
             goals: 'package'
 
         - script: |
-            echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+            echo "shehan@123" | docker login -u "shehan077" --password-stdin
           displayName: "Docker Login"
 
         - script: |
